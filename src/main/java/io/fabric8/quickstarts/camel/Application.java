@@ -15,6 +15,10 @@
  */
 package io.fabric8.quickstarts.camel;
 
+import java.util.Locale;
+import org.apache.camel.Exchange;
+import org.apache.camel.Message;
+
 import org.apache.camel.builder.RouteBuilder;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -34,8 +38,19 @@ public class Application extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        from("timer://foo?period=5000")
-            .setBody().constant("Hello World")
-            .log(">>> ${body}");
+        from("netty4-http:proxy://0.0.0.0:8080")
+            .process(Application::uppercase)
+            .toD("netty4-http:"
+                + "${headers." + Exchange.HTTP_SCHEME + "}://"
+                + "${headers." + Exchange.HTTP_HOST + "}:"
+                + "${headers." + Exchange.HTTP_PORT + "}"
+                + "${headers." + Exchange.HTTP_PATH + "}")
+            .process(Application::uppercase);
+    }
+
+    public static void uppercase(final Exchange exchange) {
+        final Message message = exchange.getIn();
+        final String body = message.getBody(String.class);
+        message.setBody(body.toUpperCase(Locale.US));
     }
 }
