@@ -15,11 +15,15 @@
  */
 package io.fabric8.quickstarts.camel;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Locale;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.model.RouteDefinition;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ImportResource;
@@ -38,9 +42,19 @@ public class Application extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        from("netty4-http:proxy://0.0.0.0:8080")
+        final RouteDefinition from;
+        if (Files.exists(keystorePath())) {
+            //from = from("netty-http:proxy://0.0.0.0:8443?ssl=true&keyStoreFile=spring/app.jks&passphrase=password&trustStoreFile=spring/app.jks");
+            // Path - D:\\\\Code\\\\spring-boot-camel\\\\spring-boot-camel\\\\src\\\\main\\\\resources\\\\spring\\\\app.jks
+            from = from("netty-http:proxy://0.0.0.0:8443?ssl=true&keyStoreFile=/tls/keystore.jks&passphrase=password&trustStoreFile=/tls/keystore.jks");
+        } else {
+            //from = from("netty-http:proxy://0.0.0.0:8443?ssl=true&keyStoreFile=D:\\\\Code\\\\spring-boot-camel\\\\spring-boot-camel\\\\src\\\\main\\\\resources\\\\spring\\\\app.jks&passphrase=password&trustStoreFile=D:\\\\Code\\\\spring-boot-camel\\\\spring-boot-camel\\\\src\\\\main\\\\resources\\\\spring\\\\app.jks");
+            from = from("netty-http:proxy://0.0.0.0:9000");
+        }
+
+        from
             .process(Application::uppercase)
-            .toD("netty4-http:"
+            .toD("netty-http:"
                 + "${headers." + Exchange.HTTP_SCHEME + "}://"
                 + "${headers." + Exchange.HTTP_HOST + "}:"
                 + "${headers." + Exchange.HTTP_PORT + "}"
@@ -48,9 +62,33 @@ public class Application extends RouteBuilder {
             .process(Application::uppercase);
     }
 
+    Path keystorePath() {
+        //return Path.of("spring", "app.jks");
+        return Paths.get("/tls/keystore.jks");
+    }
+
+    // @Override
+    // public void configure() throws Exception {
+    //     from("netty-https:proxy://0.0.0.0:9000")
+    //         .process(Application::uppercase)
+    //         .toD("netty-http:"
+    //             + "${headers." + Exchange.HTTP_SCHEME + "}://"
+    //             + "${headers." + Exchange.HTTP_HOST + "}:"
+    //             + "${headers." + Exchange.HTTP_PORT + "}"
+    //             + "${headers." + Exchange.HTTP_PATH + "}")
+    //         .process(Application::uppercase);
+    // }
+
     public static void uppercase(final Exchange exchange) {
         final Message message = exchange.getIn();
         final String body = message.getBody(String.class);
         message.setBody(body.toUpperCase(Locale.US));
     }
+
+    // @Override
+    // public void configure() throws Exception {
+    //     from("timer://foo?period=5000")
+    //         .setBody().constant("Hello World")
+    //         .log(">>> ${body}");
+    // }   
 }
